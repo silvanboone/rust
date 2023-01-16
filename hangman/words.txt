@@ -1,0 +1,8 @@
+apple
+tree
+dog
+bark
+banana
+cat
+stone
+clean

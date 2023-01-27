@@ -2,13 +2,17 @@ use std::{
     collections::VecDeque,
     io::{stdout, Write},
     ops,
+    time::Duration,
 };
 
 use crossterm::{
+    event::{poll, read, Event, KeyCode},
     execute,
-    terminal::{size, SetSize},
+    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType, SetSize},
+    Result,
 };
 
+#[derive(Debug)]
 struct Snake {
     pos: VecDeque<Point>,
     direction: Point,
@@ -16,13 +20,13 @@ struct Snake {
 }
 
 impl Snake {
-    fn move_to(&mut self, point: Point) {
+    fn move_forward(&mut self) {
         if !self.is_growing {
             self.pos.pop_back();
         }
 
         let head = self.pos.front().unwrap();
-        self.pos.push_front(head + &point);
+        self.pos.push_front(head + &self.direction);
     }
 }
 
@@ -63,11 +67,13 @@ impl Screen {
                     print!("{}", i);
                 }
             }
+            println!("|\r");
         }
-        println!();
+        println!("END SCREEN\r");
     }
 
-    fn set(&mut self, points: VecDeque<Point>) {
+    fn set(&mut self, points: &VecDeque<Point>) {
+        self.pixels = [[[Pixel::Black; 2]; 32]; 32];
         for i in points {
             self.pixels[i.y as usize][i.x as usize][0] = Pixel::White;
             self.pixels[i.y as usize][i.x as usize][1] = Pixel::White;
@@ -76,7 +82,16 @@ impl Screen {
 
     fn setup() {
         execute!(stdout(), SetSize(64, 32)).expect("Could not set terminal size");
-        // raw mode
+        enable_raw_mode().expect("Could not enable raw mode");
+    }
+
+    fn clear() {
+        Clear(ClearType::Purge);
+        println!("\r");
+    }
+
+    fn clean() {
+        disable_raw_mode().expect("Could not disable raw mode");
     }
 }
 
@@ -88,28 +103,56 @@ enum Pixel {
 }
 
 fn main() {
-    Screen::setup();
-
-    let mut screen: Screen = Screen {
+    let screen: Screen = Screen {
         pixels: [[[Pixel::Black; 2]; 32]; 32],
     };
 
-    let mut snake: Snake = Snake {
-        pos: VecDeque::from([
-            Point { x: 0, y: 2 },
-            Point { x: 1, y: 3 },
-            Point { x: 1, y: 4 },
-        ]),
-        direction: Point { x: 0, y: 0 },
+    let snake: Snake = Snake {
+        pos: VecDeque::from([Point { x: 0, y: 0 }, Point { x: 1, y: 0 }, Point { x: 3, y: 3 }]),
+        direction: Point { x: 1, y: 0 },
         is_growing: false,
     };
 
-    screen.set(snake.pos);
-    screen.print();
-    // println!("Old pos: {:?}", snake.pos);
-    // snake.move_to(Point { x: 1, y: 1 });
-    // println!("New pos: {:?}", snake.pos);
-    // snake.is_growing = true;
-    // snake.move_to(Point { x: 1, y: 1 });
-    // println!("New pos: {:?}", snake.pos);
+    game(screen, snake);
 }
+
+fn game(mut screen: Screen, mut snake: Snake) {
+    Screen::setup();
+
+    loop {
+        if poll(Duration::from_millis(160)).expect("Could not poll") {
+            let event: Event = read().expect("Could not read events");
+
+            if event == Event::Key(KeyCode::Esc.into()) {
+                break;
+            }
+            if event == Event::Key(KeyCode::Up.into()) {
+                snake.direction = Point { x: 0, y: -1 };
+            }
+            if event == Event::Key(KeyCode::Left.into()) {
+                snake.direction = Point { x: -1, y: 0 };
+            }
+            if event == Event::Key(KeyCode::Down.into()) {
+                snake.direction = Point { x: 0, y: 1 };
+            }
+            if event == Event::Key(KeyCode::Right.into()) {
+                snake.direction = Point { x: 1, y: 0 };
+            }
+            
+        }
+        snake.move_forward();
+        screen.set(&snake.pos);
+        Screen::clear();
+
+        // TODO
+        // delta time
+        // iets met directions
+
+
+        // snake.move_forward();
+        screen.print();
+    }
+
+    Screen::clean();
+}
+// cd Programming/School/3,4/rust/snake ; cargo run

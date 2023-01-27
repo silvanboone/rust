@@ -72,7 +72,7 @@ fn pause() {
 // to_string()
 fn random_word() -> String {
     let f: String = fs::read_to_string("words.txt").expect("Could not read file");
-    let w: Vec<&str> = f.split("\r\n").collect();
+    let w: Vec<&str> = f.split("\n").collect();
 
     w.choose(&mut rand::thread_rng()).unwrap().to_string()
 }
